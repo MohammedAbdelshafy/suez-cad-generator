@@ -20,18 +20,25 @@ body{
 }
 
 /* ---------- layered background ---------- */
+.port-video{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  width:100%; height:100%; object-fit:cover;
+  filter:brightness(.82) contrast(1.06) saturate(.9) hue-rotate(140deg);
+  opacity:0; transition:opacity 1.2s ease;          /* fades in only once a clip loads */
+}
+.port-video.ready{opacity:1}
 .port-photo{
   position:fixed; inset:0; z-index:0; pointer-events:none;
   background:url('/img/port.jpg') center/cover no-repeat;
   /* tint the aerial toward the bioluminescent palette + slow drift */
-  filter:brightness(.62) contrast(1.08) saturate(.85) hue-rotate(140deg);
+  filter:brightness(.82) contrast(1.06) saturate(.9) hue-rotate(140deg);
   animation:drift 60s ease-in-out infinite alternate;
 }
-.port-photo::after{ /* teal/ink wash so panels stay legible */
+.port-photo::after{ /* lighter teal/ink wash — keep panels legible but show the backdrop */
   content:""; position:absolute; inset:0;
   background:
-    radial-gradient(ellipse at 50% 40%,rgba(4,20,28,.25),rgba(2,7,13,.82) 100%),
-    linear-gradient(180deg,rgba(3,12,18,.55),rgba(3,9,14,.5));
+    radial-gradient(ellipse at 50% 40%,rgba(4,20,28,.12),rgba(2,7,13,.58) 100%),
+    linear-gradient(180deg,rgba(3,12,18,.32),rgba(3,9,14,.3));
   mix-blend-mode:multiply;
 }
 @keyframes drift{from{transform:scale(1.06) translate(0,0)}to{transform:scale(1.14) translate(-1.5%,1.5%)}}
@@ -104,6 +111,40 @@ body{
   font-family:'Orbitron',sans-serif; font-size:14px; letter-spacing:.22em;
   color:var(--bio); margin-bottom:20px; font-weight:700;
   text-shadow:0 0 14px rgba(25,240,200,.4);
+}
+.panel-head{display:flex; align-items:center; justify-content:space-between; gap:12px}
+.panel-head .panel-title{margin-bottom:20px}
+
+/* ---------- show-calculations toggle + panel ---------- */
+.calc-toggle{
+  font-family:'Rajdhani',sans-serif; font-size:12px; font-weight:600;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--bio);
+  background:rgba(7,26,36,.7); border:1px solid var(--line); border-radius:10px;
+  padding:7px 13px; cursor:pointer; white-space:nowrap;
+  transition:border-color .25s,box-shadow .25s,color .25s; margin-bottom:20px;
+}
+.calc-toggle:hover{border-color:var(--bio); box-shadow:0 0 16px rgba(25,240,200,.3); color:#eafffb}
+.calc-steps{
+  margin-top:18px; border-top:1px solid var(--line); padding-top:14px;
+  font-family:'JetBrains Mono','Consolas',monospace; font-size:12.5px;
+  animation:fadein .4s ease;
+}
+@keyframes fadein{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.calc-row{
+  display:grid; grid-template-columns:1.1fr 1.3fr 1.6fr; gap:12px;
+  padding:8px 6px; border-bottom:1px solid rgba(25,240,200,.08); align-items:baseline;
+}
+.calc-row.calc-head{
+  font-family:'Rajdhani',sans-serif; font-size:11px; letter-spacing:.14em;
+  text-transform:uppercase; color:#83b4ab; border-bottom:1px solid var(--line);
+}
+.calc-q{color:var(--bio); font-weight:600}
+.calc-f{color:#cfeee9}
+.calc-w{color:#9fd8cd}
+.calc-foot{margin-top:12px; font-size:11px; color:#6f9e95; letter-spacing:.04em}
+@media(max-width:680px){
+  .calc-row{grid-template-columns:1fr; gap:3px}
+  .calc-row.calc-head{display:none}
 }
 
 /* ---------- form ---------- */

@@ -3,14 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SUEZ · CAD &amp; Masterplan Design AI Engineer</title>
+  <title>Coastal Structures Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <!-- Layered background -->
+  <!-- Layered background: animated photo is always shown; a moving clip
+       (drop one at static/img/bg.mp4) fades in on top of it when available. -->
   <div class="port-photo"></div>      <!-- real ISS aerial of Port Said / Suez -->
+  <video id="port-video" class="port-video" autoplay muted loop playsinline>
+    <source src="/img/bg.mp4" type="video/mp4" />
+  </video>
   <canvas id="port-bg"></canvas>      <!-- holographic CAD survey overlay -->
   <canvas id="scene"></canvas>        <!-- drifting survey field -->
   <div class="vignette"></div>
@@ -19,8 +23,8 @@
   <main class="shell">
     <header class="masthead">
       <div class="pulse-dot"></div>
-      <h1>SUEZ <span>PORT CAD</span></h1>
-      <p class="subtitle">CAD &amp; masterplan design · AI engineer for port dimensioning</p>
+      <h1>COASTAL STRUCTURES <span>STUDIO</span></h1>
+      <p class="subtitle">AI that engineers your infrastructure · port dimensioning &amp; coastal structures</p>
       <div class="status" id="status">READY — enter the design vessel</div>
     </header>
 
@@ -99,10 +103,16 @@
 
       <!-- OUTPUT -->
       <section class="panel organs">
-        <h2 class="panel-title">COMPUTED PORT DIMENSIONS</h2>
+        <div class="panel-head">
+          <h2 class="panel-title">COMPUTED PORT DIMENSIONS</h2>
+          <button type="button" id="calc-toggle" class="calc-toggle" hidden aria-expanded="false">
+            ⚙ Show calculations
+          </button>
+        </div>
         <div id="cells" class="cells">
           <div class="empty-state">Enter the design vessel and press <b>GENERATE MASTERPLAN</b> to compute the port's dimensions.</div>
         </div>
+        <div id="calc-steps" class="calc-steps" hidden></div>
         <p class="disclaimer" id="disclaimer"></p>
       </section>
     </section>
@@ -125,7 +135,6 @@
         <li><i style="--c:#e9b44c"></i>Quay wall</li>
         <li><i style="--c:#5ef0ff"></i>Berths (design vessels)</li>
         <li><i style="--c:#19f0c8"></i>Turning basin / channel</li>
-        <li><i style="--c:#7a5cff"></i>Anchorage swing circle</li>
       </ul>
     </section>
 

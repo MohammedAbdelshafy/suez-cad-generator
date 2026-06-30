@@ -39,6 +39,11 @@ STYLE = {
     "BREAKWATER": (3,  "#19f0c8", "rgba(25,240,200,0.12)"),
     "BASIN":      (4,  "#5ef0ff", "rgba(94,240,255,0.04)"),
     "WIND":       (6,  "#7a5cff", "none"),
+    "QUAY":       (40, "#e9b44c", "none"),
+    "BERTH":      (4,  "#5ef0ff", "rgba(94,240,255,0.10)"),
+    "TURNING":    (3,  "#19f0c8", "rgba(25,240,200,0.05)"),
+    "CHANNEL":    (3,  "#19f0c8", "rgba(25,240,200,0.04)"),
+    "STRUCT":     (30, "#ffb454", "none"),
 }
 
 
@@ -57,8 +62,10 @@ def _bbox(geo):
             xs += [s["cx"] - s["r"], s["cx"] + s["r"]]; ys += [s["cy"] - s["r"], s["cy"] + s["r"]]
         elif s["kind"] == "rect":
             xs += [s["x"], s["x"] + s["w"]]; ys += [s["y"], s["y"] + s["h"]]
-        elif s["kind"] in ("line", "arrow", "dim"):
+        elif s["kind"] in ("line", "arrow", "dim", "dimension"):
             xs += [s["p1"][0], s["p2"][0]]; ys += [s["p1"][1], s["p2"][1]]
+        elif s["kind"] == "note":
+            xs += [s["x"]]; ys += [s["y"]]
         else:
             xs += [p[0] for p in s["points"]]; ys += [p[1] for p in s["points"]]
     return min(xs), min(ys), max(xs), max(ys)
@@ -74,10 +81,33 @@ def _centroid(s):
         return s["cx"], s["cy"]
     if s["kind"] == "rect":
         return s["x"] + s["w"] / 2, s["y"] + s["h"] / 2
-    if s["kind"] in ("line", "arrow", "dim"):
+    if s["kind"] in ("line", "arrow", "dim", "dimension"):
         return (s["p1"][0] + s["p2"][0]) / 2, (s["p1"][1] + s["p2"][1]) / 2
+    if s["kind"] == "note":
+        return s["x"], s["y"]
     xs = [p[0] for p in s["points"]]; ys = [p[1] for p in s["points"]]
     return sum(xs) / len(xs), sum(ys) / len(ys)
+
+
+def _dim_geometry(p1, p2, off):
+    """Resolve a dimension annotation into model-space segments + a text anchor.
+
+    Returns the offset dimension line (a→b), the two extension lines, the
+    mid-point for the value text, and the along/perp unit vectors (so callers
+    can draw end ticks). Shared by the SVG and DXF renderers for consistency.
+    """
+    import math
+    x1, y1 = p1
+    x2, y2 = p2
+    dx, dy = x2 - x1, y2 - y1
+    L = math.hypot(dx, dy) or 1.0
+    ux, uy = dx / L, dy / L            # along the measured edge
+    px, py = -uy, ux                   # perpendicular (offset direction)
+    a = (x1 + px * off, y1 + py * off)
+    b = (x2 + px * off, y2 + py * off)
+    mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+    return {"a": a, "b": b, "ext1": ((x1, y1), a), "ext2": ((x2, y2), b),
+            "mid": mid, "u": (ux, uy), "p": (px, py)}
 
 
 # --------------------------------------------------------------------- DXF ---
@@ -101,6 +131,25 @@ def geometry_to_dxf(geo: dict, title: str = "") -> str:
             msp.add_line(s["p1"], s["p2"], dxfattribs={"layer": layer})
         elif k == "arrow":
             msp.add_line(s["p1"], s["p2"], dxfattribs={"layer": layer})
+        elif k == "dimension":
+            g = _dim_geometry(s["p1"], s["p2"], s.get("off", 0.0))
+            msp.add_line(g["a"], g["b"], dxfattribs={"layer": layer})
+            msp.add_line(*g["ext1"], dxfattribs={"layer": layer})
+            msp.add_line(*g["ext2"], dxfattribs={"layer": layer})
+            tk = h * 0.7                                   # 45° end ticks
+            ux, uy = g["u"]; px, py = g["p"]
+            for pt in (g["a"], g["b"]):
+                msp.add_line((pt[0] - (ux + px) * tk, pt[1] - (uy + py) * tk),
+                             (pt[0] + (ux + px) * tk, pt[1] + (uy + py) * tk),
+                             dxfattribs={"layer": layer})
+            mx, my = g["mid"]
+            t = msp.add_text(s.get("text", ""),
+                             dxfattribs={"layer": layer, "height": h})
+            t.set_placement((mx + px * h, my + py * h))
+        elif k == "note":
+            t = msp.add_text(s.get("text", ""),
+                             dxfattribs={"layer": layer, "height": h})
+            t.set_placement((s["x"], s["y"]))
         else:
             msp.add_lwpolyline(s["points"], close=s.get("closed", False),
                                dxfattribs={"layer": layer})
@@ -109,10 +158,25 @@ def geometry_to_dxf(geo: dict, title: str = "") -> str:
             t = msp.add_text(s["label"], dxfattribs={"layer": layer, "height": h})
             t.set_placement((cx, cy))
 
+    _dxf_north(msp, geo, h)
     _dxf_titleblock(msp, geo, title, h)
     stream = io.StringIO()
     doc.write(stream)
     return stream.getvalue()
+
+
+def _dxf_north(msp, geo, h):
+    """A simple north arrow at the top-right of the drawing extent."""
+    minx, miny, maxx, maxy = _bbox(geo)
+    ext = _extent(geo)
+    x = maxx + ext * 0.04
+    y0 = maxy - ext * 0.04
+    ln = ext * 0.07
+    msp.add_line((x, y0 - ln), (x, y0), dxfattribs={"layer": "DIM"})
+    msp.add_line((x, y0), (x - h * 0.6, y0 - h), dxfattribs={"layer": "DIM"})
+    msp.add_line((x, y0), (x + h * 0.6, y0 - h), dxfattribs={"layer": "DIM"})
+    t = msp.add_text("N", dxfattribs={"layer": "DIM", "height": h * 1.2})
+    t.set_placement((x - h * 0.5, y0 + h * 0.4))
 
 
 def _dxf_titleblock(msp, geo, title, h):
@@ -189,6 +253,11 @@ def geometry_to_svg(geo: dict, title: str = "", px: int = 980) -> str:
                        f'stroke="{stroke}" stroke-width="1.8"{dash}/>')
         elif k == "arrow":
             out.append(_arrow(X(s["p1"][0]), Y(s["p1"][1]), X(s["p2"][0]), Y(s["p2"][1]), stroke))
+        elif k == "dimension":
+            out.append(_svg_dim(s, X, Y, stroke))
+        elif k == "note":
+            out.append(_t(s.get("text", ""), X(s["x"]), Y(s["y"]), 12, stroke,
+                          anchor=s.get("anchor", "middle"), halo=True))
         else:
             pts = " ".join(f"{X(p[0]):.1f},{Y(p[1]):.1f}" for p in s["points"])
             close = "Z" if s.get("closed") else ""
@@ -198,6 +267,8 @@ def geometry_to_svg(geo: dict, title: str = "", px: int = 980) -> str:
             cx, cy = _centroid(s)
             out.append(_t(s["label"], X(cx), Y(cy), 12, stroke, halo=True))
 
+    if geo.get("north"):
+        out.append(_svg_north(W))
     out.append(_scalebar(scale, W, H))
     out.append(_t("CONCEPT / TEACHING — NOT FOR CONSTRUCTION", W/2, H-10, 10,
                   "#6f9e95", anchor="middle"))
@@ -223,6 +294,47 @@ def _arrow(x1, y1, x2, y2, color):
             f'stroke="{color}" stroke-width="2.4"/>'
             f'<polygon points="{x2:.1f},{y2:.1f} {p1[0]:.1f},{p1[1]:.1f} '
             f'{p2[0]:.1f},{p2[1]:.1f}" fill="{color}"/>')
+
+
+def _svg_dim(s, X, Y, color):
+    """Render a dimension annotation: extension lines, ticked dimension line
+    and the value text, all in SVG screen space."""
+    import math
+    g = _dim_geometry(s["p1"], s["p2"], s.get("off", 0.0))
+    a, b, mid = g["a"], g["b"], g["mid"]
+    ux, uy = g["u"]; px, py = g["p"]
+
+    def ln(p, q, w, dash=""):
+        return (f'<line x1="{X(p[0]):.1f}" y1="{Y(p[1]):.1f}" '
+                f'x2="{X(q[0]):.1f}" y2="{Y(q[1]):.1f}" stroke="{color}" '
+                f'stroke-width="{w}"{dash}/>')
+
+    parts = [ln(a, b, 1.6),
+             ln(*g["ext1"], 1.0, ' stroke-dasharray="3 3"'),
+             ln(*g["ext2"], 1.0, ' stroke-dasharray="3 3"')]
+    # 45° end ticks (screen space; y is flipped so negate the y component)
+    tvx, tvy = (ux + px), -(uy + py)
+    tl = math.hypot(tvx, tvy) or 1.0
+    tvx, tvy = tvx / tl * 5, tvy / tl * 5
+    for (mx, my) in (a, b):
+        sx, sy = X(mx), Y(my)
+        parts.append(f'<line x1="{sx - tvx:.1f}" y1="{sy - tvy:.1f}" '
+                     f'x2="{sx + tvx:.1f}" y2="{sy + tvy:.1f}" '
+                     f'stroke="{color}" stroke-width="1.6"/>')
+    # value text, nudged just off the dimension line
+    npx, npy = px, -py
+    nl = math.hypot(npx, npy) or 1.0
+    tx, ty = X(mid[0]) + npx / nl * 12, Y(mid[1]) + npy / nl * 12
+    parts.append(_t(s.get("text", ""), tx, ty + 4, 12, color, halo=True))
+    return "\n".join(parts)
+
+
+def _svg_north(W):
+    x, y = W - 26, 80
+    return (f'<g stroke="#d6f2ec" stroke-width="2" fill="#d6f2ec">'
+            f'<line x1="{x}" y1="{y + 22}" x2="{x}" y2="{y}"/>'
+            f'<polygon points="{x},{y - 3} {x - 5},{y + 8} {x + 5},{y + 8}" stroke="none"/>'
+            f'<text x="{x}" y="{y - 7}" font-size="12" text-anchor="middle" stroke="none">N</text></g>')
 
 
 def _grid(minx, miny, maxx, maxy, scale, X, Y, W):

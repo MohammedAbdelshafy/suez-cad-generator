@@ -127,6 +127,30 @@ def api_vessel(req: VesselReq):
     return calculations.compute(calculations.VesselInput(**req.model_dump()))
 
 
+@app.get("/api/presets")
+def api_presets():
+    return calculations.VESSEL_PRESETS
+
+
+@app.post("/api/calculate")
+def api_calculate(req: VesselReq):
+    return api_vessel(req)
+
+
+@app.post("/api/export.dxf")
+def api_export_dxf(req: VesselReq):
+    payload = calculations.compute(calculations.VesselInput(**req.model_dump()))
+    return _file(geometry_to_dxf(payload["geometry"], "Harbour Layout"),
+                 "application/dxf", "harbour_layout.dxf")
+
+
+@app.post("/api/export.svg")
+def api_export_svg(req: VesselReq):
+    payload = calculations.compute(calculations.VesselInput(**req.model_dump()))
+    return _file(geometry_to_svg(payload["geometry"], "Harbour Layout"),
+                 "image/svg+xml", "harbour_layout.svg")
+
+
 @app.post("/api/wind")
 def api_wind(req: WindReq):
     return coastal.wind_rose(**req.model_dump(exclude_none=False))

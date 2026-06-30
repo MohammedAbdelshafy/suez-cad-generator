@@ -1,9 +1,9 @@
-# SUEZ · CAD & Masterplan Design AI Engineer
+# Coastal Structures Studio
 
 A **design-vessel port dimensioning** engine with a CAD/masterplan front-end.
 Enter a design vessel's particulars (LOA, beam, draft, …) and it computes the
 port's principal dimensions — approach channel depth & width, turning circle,
-quay length, anchorage, and more — then draws and exports a to-scale masterplan.
+quay length, and more — then draws and exports a to-scale masterplan.
 
 > Planning-level concept figures (PIANC WG121 / UNCTAD rules of thumb).
 > **Not for construction** — verify with a manoeuvring simulation and a
@@ -36,14 +36,12 @@ uv pip install -r requirements.txt --python .venv\Scripts\python.exe
 | Turning basin area | swept circle |
 | Berth pocket depth | draft + alongside clearance |
 | Total quay length | berths × LOA + clearances |
-| Stopping distance | ~7 × LOA |
-| Anchorage radius & area | swing mooring |
 
 ## What it draws (CAD)
 
 From the same numbers the engine derives a **to-scale schematic plan**
-(quay wall, berthed design vessels, turning basin, approach channel and
-anchorage swing circle) rendered live in the browser and exportable:
+(quay wall, berthed design vessels, turning basin and approach channel)
+rendered live in the browser and exportable:
 
 | Format | Endpoint | Use |
 |--------|----------|-----|

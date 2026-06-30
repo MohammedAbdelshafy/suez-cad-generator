@@ -11,9 +11,21 @@
   const planStage = document.getElementById('plan');
   const exportBar = document.getElementById('export-bar');
   const legend = document.getElementById('legend');
+  const calcToggle = document.getElementById('calc-toggle');
+  const calcSteps = document.getElementById('calc-steps');
 
   let lastData = null;       // last successful API result
   let lastPayload = null;    // the request that produced it
+
+  /* reveal the optional moving backdrop only when a real clip actually loads;
+     otherwise the animated photo stays as the background. */
+  const bgVideo = document.getElementById('port-video');
+  if (bgVideo) {
+    bgVideo.addEventListener('loadeddata', () => {
+      if (bgVideo.videoWidth > 0) bgVideo.classList.add('ready');
+    });
+    bgVideo.addEventListener('error', () => bgVideo.classList.remove('ready'));
+  }
 
   /* ---------- presets ---------- */
   fetch('/api/presets').then(r => r.ok ? r.json() : {}).then(presets => {
@@ -90,11 +102,36 @@
     });
     vesselClass.textContent = `◆ ${data.summary.vessel_class} · Cb ${data.summary.block_coefficient} · squat ${data.summary.squat_m} m`;
     disclaimer.textContent = data.disclaimer;
+    renderCalcSteps(data);
+    if (calcToggle) calcToggle.hidden = false;
     if (data.geometry && window.PortPlan) {
       window.PortPlan.render(data.geometry, data.summary.vessel_class, planStage);
       exportBar.hidden = false;
       legend.hidden = false;
     }
+  }
+
+  /* Build the "show calculations" breakdown: each metric's formula and the
+     same expression with the actual numbers substituted (from the API). */
+  function renderCalcSteps(data) {
+    if (!calcSteps) return;
+    const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const rows = data.results.map(r => `
+      <div class="calc-row">
+        <div class="calc-q">${esc(r.label)}</div>
+        <div class="calc-f">${esc(r.formula)}</div>
+        <div class="calc-w">${esc(r.working)}</div>
+      </div>`).join('');
+    const sum = data.summary
+      ? `Cb = ${data.summary.block_coefficient} · squat = ${data.summary.squat_m} m`
+      : '';
+    calcSteps.innerHTML = `
+      <div class="calc-row calc-head">
+        <div class="calc-q">Quantity</div>
+        <div class="calc-f">Formula</div>
+        <div class="calc-w">Substitution → result</div>
+      </div>${rows}
+      <p class="calc-foot">Concept-design rules of thumb (PIANC WG121 / UNCTAD). ${sum}</p>`;
   }
 
   function fmt(v) {
@@ -197,4 +234,13 @@
     const b = e.target.closest('.exp-btn');
     if (b) exportFile(b.dataset.export, b);
   });
+
+  if (calcToggle) {
+    calcToggle.addEventListener('click', () => {
+      const opening = calcSteps.hidden;
+      calcSteps.hidden = !opening;
+      calcToggle.setAttribute('aria-expanded', String(opening));
+      calcToggle.textContent = opening ? '⚙ Hide calculations' : '⚙ Show calculations';
+    });
+  }
 })();

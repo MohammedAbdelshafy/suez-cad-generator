@@ -110,6 +110,8 @@ class Result:
     value: float
     unit: str
     note: str = ""
+    formula: str = ""      # symbolic basis, e.g. "d = T + UKC + squat + wave"
+    working: str = ""      # the same with the actual numbers substituted
 
 
 def _round(x: float, n: int = 1) -> float:
@@ -129,7 +131,6 @@ def _build_geometry(v: VesselInput, d: dict) -> dict:
         berthed vessels alongside       (0 .. -beam)
         turning basin (circle)
         approach channel (rectangle, leads to sea)
-        anchorage (circle, sea end)
     """
     B, LOA = v.beam, v.loa
     quay_len = d["quay_length"]
@@ -137,10 +138,12 @@ def _build_geometry(v: VesselInput, d: dict) -> dict:
     n = d["num_berths"]
     turn_d = d["turning_diameter"]
     chan_w = d["channel_width"]
-    anch_r = d["anchorage_radius"]
+    chan_depth = d.get("channel_depth", 0.0)
+    berth_depth = d.get("berth_depth", 0.0)
 
     cx = quay_len / 2.0
     gap = max(clr, 0.5 * B)
+    o = max(quay_len, turn_d) * 0.05      # dimension offset (m) — scales with drawing
 
     shapes = []
 
@@ -179,14 +182,54 @@ def _build_geometry(v: VesselInput, d: dict) -> dict:
         "note": "reach length schematic",
     })
 
-    # Anchorage swing circle at the sea end of the channel.
-    anch_cy = chan_y - gap - anch_r
+    # Breakwater / training-mole stubs flanking the channel mouth (sea end).
+    mouth = chan_y
+    stub = max(chan_w * 0.6, gap)
+    for sgn in (-1, 1):
+        ex = cx + sgn * chan_w / 2.0
+        shapes.append({
+            "kind": "polyline", "layer": "STRUCT", "closed": False,
+            "points": [[_round(ex + sgn * stub, 2), _round(mouth - stub, 2)],
+                       [_round(ex, 2), _round(mouth, 2)]],
+        })
     shapes.append({
-        "kind": "circle", "layer": "ANCHORAGE", "label": "Anchorage",
-        "cx": _round(cx, 2), "cy": _round(anch_cy, 2), "r": _round(anch_r, 2),
+        "kind": "note", "layer": "STRUCT", "text": "Breakwater heads",
+        "x": _round(cx, 2), "y": _round(mouth - stub * 1.15, 2), "anchor": "middle",
     })
 
-    return {"units": "m", "shapes": shapes}
+    # ---- Dimension lines (extension lines + ticked dim line + value text) ----
+    def dim(p1, p2, off, text):
+        shapes.append({"kind": "dimension", "layer": "DIM",
+                       "p1": [_round(p1[0], 2), _round(p1[1], 2)],
+                       "p2": [_round(p2[0], 2), _round(p2[1], 2)],
+                       "off": _round(off, 2), "text": text})
+
+    # Total quay length — dimensioned on the land side (above the quay).
+    dim([0.0, 0.0], [quay_len, 0.0], o, f"Quay L = {quay_len:.0f} m")
+    # First berth: LOA (below) and beam (to the left).
+    dim([clr, -B], [clr + LOA, -B], -o, f"LOA = {LOA:.0f} m")
+    dim([clr, 0.0], [clr, -B], -o, f"B = {B:.0f} m")
+    if n >= 2:                                   # inter-berth clearance
+        dim([clr + LOA, -B], [2 * clr + LOA, -B], -o * 0.6, f"c = {clr:.0f} m")
+    # Turning basin diameter (horizontal through the centre).
+    dim([cx - turn_d / 2.0, basin_cy], [cx + turn_d / 2.0, basin_cy], 0.0,
+        f"Ø {turn_d:.0f} m")
+    # Channel width (across the mouth).
+    dim([cx - chan_w / 2.0, mouth], [cx + chan_w / 2.0, mouth], -o, f"W = {chan_w:.0f} m")
+
+    # ---- Depth call-outs (depths aren't visible in plan view) ----
+    shapes.append({
+        "kind": "note", "layer": "DIM", "anchor": "middle",
+        "x": _round(cx, 2), "y": _round((chan_y + chan_top) / 2.0, 2),
+        "text": f"Dredge depth {chan_depth:.1f} m CD",
+    })
+    shapes.append({
+        "kind": "note", "layer": "DIM", "anchor": "middle",
+        "x": _round(cx, 2), "y": _round(-B / 2.0, 2),
+        "text": f"Berth pocket {berth_depth:.1f} m CD",
+    })
+
+    return {"units": "m", "shapes": shapes, "north": True}
 
 
 def compute(v: VesselInput) -> dict:
@@ -223,30 +266,41 @@ def compute(v: VesselInput) -> dict:
     n = max(1, int(v.num_berths))
     quay_length = n * LOA + (n + 1) * clearance
 
-    # --- Stopping distance & anchorage --------------------------------
-    stopping_distance = 7.0 * LOA
-    anchorage_radius = LOA + 6.0 * channel_depth + 30.0
-    anchorage_area = pi * anchorage_radius ** 2
+    # Channel-width formula/working depend on the channel type (PIANC concept).
+    a = exp["width_add"]
+    if v.channel_type == "two-way":
+        width_formula = "W = 2·(1.5B) + 2·(a·B) + 1.6B + 2·(0.5B)"
+        width_working = (f"2×{w_bm:.0f} + 2×{w_add:.0f} + {w_pass:.0f} + 2×{w_bank:.0f} "
+                         f"= {channel_width:.0f} m   (B={B:.0f}, a={a:.1f})")
+    else:
+        width_formula = "W = 1.5B + a·B + 2·(0.5B)"
+        width_working = (f"{w_bm:.0f} + {w_add:.0f} + 2×{w_bank:.0f} "
+                         f"= {channel_width:.0f} m   (B={B:.0f}, a={a:.1f})")
 
     results = [
         Result("Approach Channel Depth", _round(channel_depth), "m",
-                f"draft {T:.1f} + squat {s:.2f} + wave {wave_allow:.1f} + UKC {net_ukc:.2f}"),
+                f"draft {T:.1f} + squat {s:.2f} + wave {wave_allow:.1f} + UKC {net_ukc:.2f}",
+                formula="d = T + UKC + squat + wave",
+                working=f"{T:.1f} + {net_ukc:.2f} + {s:.2f} + {wave_allow:.1f} = {channel_depth:.2f} m"),
         Result("Approach Channel Width", _round(channel_width), "m",
-                f"{v.channel_type} channel, {exp['label'].lower()} exposure"),
+                f"{v.channel_type} channel, {exp['label'].lower()} exposure",
+                formula=width_formula, working=width_working),
         Result("Turning Circle Diameter", _round(turning_diameter), "m",
-                f"{turn_factor:.1f} x LOA ({v.maneuver_aids})"),
+                f"{turn_factor:.1f} x LOA ({v.maneuver_aids})",
+                formula="D = f · LOA",
+                working=f"{turn_factor:.1f} × {LOA:.0f} = {turning_diameter:.0f} m   (f for {v.maneuver_aids})"),
         Result("Turning Basin Area", _round(turning_area / 10000, 2), "ha",
-                "water area swept for turning"),
+                "water area swept for turning",
+                formula="A = π·(D/2)²",
+                working=f"π × ({turning_diameter:.0f}/2)² = {turning_area:,.0f} m² = {turning_area/10000:.2f} ha"),
         Result("Berth Pocket Depth", _round(berth_depth), "m",
-                "alongside, reduced squat"),
+                "alongside, reduced squat",
+                formula="d_b = T + max(0.07·T, 0.5)",
+                working=f"{T:.1f} + {max(0.07*T, 0.5):.2f} = {berth_depth:.2f} m"),
         Result("Total Quay Length", _round(quay_length), "m",
-                f"{n} berth(s) + {clearance:.0f} m clearances"),
-        Result("Design Stopping Distance", _round(stopping_distance), "m",
-                "~7 x LOA, loaded, emergency stop"),
-        Result("Anchorage Swing Radius", _round(anchorage_radius), "m",
-                "single-point swing mooring"),
-        Result("Anchorage Area", _round(anchorage_area / 10000, 1), "ha",
-                "per swinging vessel"),
+                f"{n} berth(s) + {clearance:.0f} m clearances",
+                formula="L = n·LOA + (n+1)·c",
+                working=f"{n}×{LOA:.0f} + {n + 1}×{clearance:.0f} = {quay_length:.0f} m   (c={clearance:.0f} m)"),
     ]
 
     summary = {
@@ -262,7 +316,8 @@ def compute(v: VesselInput) -> dict:
         "num_berths": n,
         "turning_diameter": turning_diameter,
         "channel_width": channel_width,
-        "anchorage_radius": anchorage_radius,
+        "channel_depth": channel_depth,
+        "berth_depth": berth_depth,
     }
 
     return {

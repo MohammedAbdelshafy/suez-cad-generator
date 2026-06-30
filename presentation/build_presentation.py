@@ -29,8 +29,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 from calculations import compute, VesselInput, VESSEL_PRESETS, BLOCK_COEFFICIENT  # noqa: E402
 
+# Coastal calc engine built from Dr. Elemary's ECB 3802 lectures.
+sys.path.insert(0, r"C:\Users\omare\OneDrive\Desktop\AI\Coastal_ECB3802")
+import coastal_calcs as W  # noqa: E402
+
 ASSETS = Path(__file__).resolve().parent / "assets"
 ASSETS.mkdir(exist_ok=True)
+LOGO = ASSETS / "uni_logo.png"
 OUT_PPTX = Path(__file__).resolve().parent / "SUEZ_Port_CAD_Graduation.pptx"
 
 # ---------------------------------------------------------------- palette ----
@@ -73,23 +78,38 @@ def render_plan(payload: dict, path: Path, title: str) -> None:
     fig.patch.set_facecolor(M_INK)
     ax.set_facecolor(M_INK)
 
+    style["STRUCT"] = M_CYAN
+    style["DIM"] = DIM_hex()
+    ha_map = {"middle": "center", "start": "left", "end": "right"}
     for s in geo:
         c = style.get(s["layer"], M_BIO)
-        if s["kind"] == "circle":
+        kind = s["kind"]
+        if kind == "circle":
             ax.add_patch(Circle((s["cx"], s["cy"]), s["r"], fill=False, ec=c, lw=1.6))
-            ax.text(s["cx"], s["cy"], s["label"], color=c, ha="center", va="center",
-                    fontsize=10, family="monospace")
-        elif s["kind"] == "rect":
+            if s.get("label"):
+                ax.text(s["cx"], s["cy"], s["label"], color=c, ha="center",
+                        va="center", fontsize=10, family="monospace")
+        elif kind == "rect":
             ax.add_patch(Rectangle((s["x"], s["y"]), s["w"], s["h"], fill=True,
                                    ec=c, fc=c + "22", lw=1.4))
-            ax.text(s["x"] + s["w"] / 2, s["y"] + s["h"] / 2, s["label"], color=c,
-                    ha="center", va="center", fontsize=9, family="monospace")
-        else:
-            xs = [p[0] for p in s["points"]]
-            ys = [p[1] for p in s["points"]]
+            if s.get("label"):
+                ax.text(s["x"] + s["w"] / 2, s["y"] + s["h"] / 2, s["label"],
+                        color=c, ha="center", va="center", fontsize=9, family="monospace")
+        elif kind == "polyline":
+            xs = [p[0] for p in s["points"]]; ys = [p[1] for p in s["points"]]
             ax.plot(xs, ys, color=c, lw=2.6)
-            ax.text(sum(xs) / len(xs), max(ys) + 30, s["label"], color=c,
-                    ha="center", fontsize=10, family="monospace")
+            if s.get("label"):
+                ax.text(sum(xs) / len(xs), max(ys) + 30, s["label"], color=c,
+                        ha="center", fontsize=10, family="monospace")
+        elif kind == "note":
+            ax.text(s["x"], s["y"], s["text"], color=c,
+                    ha=ha_map.get(s.get("anchor"), "center"), fontsize=8,
+                    family="monospace")
+        elif kind == "dimension":
+            p1, p2 = s["p1"], s["p2"]
+            ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color=c, lw=0.8, alpha=0.8)
+            ax.text((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2 + 12, s["text"],
+                    color=c, ha="center", fontsize=7, family="monospace")
 
     ax.set_aspect("equal")
     ax.grid(True, color=M_GRID, lw=0.6, alpha=0.6)
@@ -105,6 +125,40 @@ def render_plan(payload: dict, path: Path, title: str) -> None:
 
 def DIM_hex():
     return "#83b4ab"
+
+
+def render_windrose(path: Path) -> None:
+    """Polar wind rose from the lecture wind table (hours/yr, stacked by speed)."""
+    import numpy as np
+    deg = {"N": 0, "30": 30, "60": 60, "E": 90, "120": 120, "150": 150,
+           "S": 180, "210": 210, "240": 240, "W": 270, "300": 300, "330": 330}
+    rows, _, _ = W.wind_rose()
+    fig = plt.figure(figsize=(6.6, 6.6), dpi=170)
+    ax = fig.add_subplot(111, projection="polar")
+    fig.patch.set_facecolor(M_INK); ax.set_facecolor(M_INK)
+    ax.set_theta_zero_location("N"); ax.set_theta_direction(-1)
+    colors = [M_BIO, M_CYAN, M_PLASMA, M_AMBER]
+    labels = ["5 kt", "15 kt", "25 kt", "35 kt"]
+    width = np.radians(26)
+    for r in rows:
+        ang = np.radians(deg[r["dir"]]); bottom = 0.0
+        for ci, dur in enumerate(r["durations"]):
+            ax.bar(ang, dur, width=width, bottom=bottom, color=colors[ci],
+                   edgecolor=M_INK, linewidth=0.6)
+            bottom += dur
+    ax.tick_params(colors=M_TEXT, labelsize=8)
+    ax.set_yticklabels([])
+    ax.grid(True, color=M_GRID, lw=0.6, alpha=0.7)
+    for sp in ax.spines.values():
+        sp.set_color(M_GRID)
+    handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in colors]
+    leg = ax.legend(handles, labels, loc="lower right", bbox_to_anchor=(1.15, -0.05),
+                    frameon=False, fontsize=8, labelcolor=M_TEXT, title="speed class")
+    leg.get_title().set_color(DIM_hex())
+    ax.set_title("WIND ROSE — hours/yr by direction & speed",
+                 color=M_TEXT, fontsize=11, pad=22, family="monospace")
+    fig.savefig(path, facecolor=M_INK, bbox_inches="tight")
+    plt.close(fig)
 
 
 # ================================================================ pptx deck ==
@@ -162,9 +216,60 @@ def textbox(slide, l, t, w, h, lines, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP
     return tb
 
 
+# ----------------------------------------------------------- backgrounds ----
+PORT_IMAGES = Path(r"C:\Users\omare\OneDrive\Desktop\AI\port_images")
+_BACKGROUNDS: list[Path] = []
+_bg_state = {"i": 0}
+
+
+def scrim(slide, alpha_pct: int = 50):
+    """Full-slide semi-transparent black overlay for uniform text contrast."""
+    from pptx.oxml.ns import qn
+    sp = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0,
+                                Emu(int(SW * EMU_IN)), Emu(int(SH * EMU_IN)))
+    sp.fill.solid(); sp.fill.fore_color.rgb = RGBColor(0x03, 0x06, 0x0B)
+    sp.line.fill.background(); _no_shadow(sp)
+    srgb = sp.fill.fore_color._xFill.find(qn("a:srgbClr"))
+    srgb.append(srgb.makeelement(qn("a:alpha"), {"val": str(int(alpha_pct * 1000))}))
+    return sp
+
+
+def prepare_backgrounds(darken: float = 0.5) -> list[Path]:
+    """Center-crop every port photo to 16:9 and darken it so slide text stays
+    readable. Returns the processed files (cycled across slides). Drop more
+    images into PORT_IMAGES and they are picked up automatically."""
+    from PIL import Image
+    srcs = sorted(PORT_IMAGES.glob("*.png")) + sorted(PORT_IMAGES.glob("*.jpg"))
+    outs = []
+    target = SW / SH  # 16:9
+    for i, p in enumerate(srcs):
+        im = Image.open(p).convert("RGB")
+        w, h = im.size
+        ar = w / h
+        if ar > target:                      # too wide -> crop sides
+            nw = int(h * target)
+            im = im.crop(((w - nw) // 2, 0, (w - nw) // 2 + nw, h))
+        else:                                # too tall -> crop top/bottom
+            nh = int(w / target)
+            im = im.crop((0, (h - nh) // 2, w, (h - nh) // 2 + nh))
+        im = Image.eval(im, lambda x: int(x * darken))   # dim for legibility
+        out = ASSETS / f"bg_{i:02d}.png"
+        im.save(out)
+        outs.append(out)
+    return outs
+
+
 def base_slide(prs):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    rect(slide, 0, 0, SW, SH, INK)
+    if _BACKGROUNDS:
+        img = _BACKGROUNDS[_bg_state["i"] % len(_BACKGROUNDS)]
+        _bg_state["i"] += 1
+        slide.shapes.add_picture(str(img), 0, 0,
+                                 width=Emu(int(SW * EMU_IN)),
+                                 height=Emu(int(SH * EMU_IN)))
+        scrim(slide, 50)
+    else:
+        rect(slide, 0, 0, SW, SH, INK)
     return slide
 
 
@@ -172,9 +277,10 @@ def decor(slide, section, number, total):
     # left accent line + node
     vline(slide, 0.55, 1.0, 5.5, BIO, 2.2)
     rect(slide, 0.5, 0.95, 0.1, 0.1, BIO)
-    # top-right crosshair
-    hline(slide, SW - 1.05, 0.6, 0.45, BIO, 1.6)
-    vline(slide, SW - 0.6, 0.38, 0.45, BIO, 1.6)
+    # top-right university logo (golden AASTMT emblem)
+    if LOGO.exists():
+        slide.shapes.add_picture(str(LOGO), Inches(SW - 1.25), Inches(0.3),
+                                 height=Inches(0.78))
     # footer
     hline(slide, 0.9, SH - 0.62, SW - 1.8, PANEL, 1.2)
     textbox(slide, 0.9, SH - 0.55, 8, 0.3,
@@ -227,6 +333,10 @@ def formula_card(slide, l, t, w, h, name, expr, note):
 
 # ================================================================== content ==
 def build():
+    # photographic slide backgrounds (cycled, darkened for legibility)
+    _BACKGROUNDS[:] = prepare_backgrounds()
+    _bg_state["i"] = 0
+
     # worked example
     nx = {k: v for k, v in VESSEL_PRESETS["neopanamax"].items() if k != "label"}
     example = compute(VesselInput(**nx))
@@ -236,20 +346,36 @@ def build():
     render_plan(compute(VesselInput(**vlcc)), ASSETS / "plan_vlcc.png",
                 "VLCC TANKER — CONCEPT MASTERPLAN")
 
+    # ---- Max-LOA design + coastal calcs (Dr. Elemary's ECB 3802 lectures) ----
+    ulcv = {k: v for k, v in VESSEL_PRESETS["ulcv"].items() if k != "label"}
+    maxloa = compute(VesselInput(**ulcv, num_berths=2))
+    render_plan(maxloa, ASSETS / "plan_ulcv.png",
+                "MAX-LOA ULCV (400 m) — CONCEPT MASTERPLAN")
+    render_windrose(ASSETS / "windrose.png")
+    _rows, _grand, _pwd = W.wind_rose()
+    chan_depth = next(r["value"] for r in maxloa["results"]
+                      if r["label"] == "Approach Channel Depth")
+    Tw, H0w, phi0w, Kdw = 8.0, 2.5, 30.0, 0.10
+    sw = W.shoaling(Tw, chan_depth)
+    rw = W.refraction(Tw, chan_depth, phi0w)
+    Hw = W.combined_H(H0w, sw["Ks"], rw["Kr"], Kdw)
+
     prs = Presentation()
     prs.slide_width = Emu(int(SW * EMU_IN))
     prs.slide_height = Emu(int(SH * EMU_IN))
-    TOTAL = 16
+    TOTAL = 20
 
     # ---- 01 TITLE ----
     s = base_slide(prs)
-    rect(s, 0, 0, SW, SH, INK)
     vline(s, 1.0, 1.7, 3.6, BIO, 3)
-    hline(s, SW - 4.2, 1.2, 3.0, PLASMA, 2)
-    vline(s, SW - 1.2, 1.2, 0.9, PLASMA, 2)
-    textbox(s, 1.3, 1.55, 11, 0.4,
+    if LOGO.exists():
+        s.shapes.add_picture(str(LOGO), Inches(10.95), Inches(0.45), height=Inches(1.85))
+    textbox(s, 1.3, 1.5, 9.4, 0.4,
+            [{"runs": [{"t": "ARAB ACADEMY FOR SCIENCE, TECHNOLOGY & MARITIME TRANSPORT",
+                        "size": 12.5, "color": AMBER, "font": HEAD, "bold": True, "spc": 2}]}])
+    textbox(s, 1.3, 1.82, 9.4, 0.4,
             [{"runs": [{"t": "GRADUATION PROJECT · ECB 3802 · MARINE PORT ENGINEERING",
-                        "size": 13, "color": AMBER, "font": HEAD, "bold": True, "spc": 3}]}])
+                        "size": 11, "color": DIM, "font": HEAD, "bold": True, "spc": 3}]}])
     textbox(s, 1.25, 2.05, 11.5, 1.7,
             [{"runs": [{"t": "SUEZ PORT CAD", "size": 66, "color": WHITE, "font": HEAD,
                         "bold": True, "spc": 1}]}])
@@ -262,9 +388,9 @@ def build():
     hline(s, 1.3, 5.3, 5.0, PANEL, 1.5)
     textbox(s, 1.3, 5.5, 11, 1.2, [
         {"runs": [{"t": "Presented by   ", "size": 14, "color": DIM, "font": BODY},
-                  {"t": "Mohamed Abdelshafy", "size": 14, "color": TEXT, "font": BODY, "bold": True}]},
+                  {"t": "Mohammed Abdelshafy", "size": 14, "color": TEXT, "font": BODY, "bold": True}]},
         {"before": 4, "runs": [{"t": "Supervisor       ", "size": 14, "color": DIM, "font": BODY},
-                  {"t": "Dr. ____________________", "size": 14, "color": TEXT, "font": BODY}]},
+                  {"t": "Dr. Waleed Elemary", "size": 14, "color": TEXT, "font": BODY, "bold": True}]},
         {"before": 4, "runs": [{"t": "Year                  ", "size": 14, "color": DIM, "font": BODY},
                   {"t": "2026", "size": 14, "color": TEXT, "font": BODY, "bold": True}]},
     ])
@@ -275,8 +401,12 @@ def build():
               "The design vessel", "Theoretical basis — PIANC / UNCTAD",
               "Dimensioning formulas", "The AI-engineer tool & architecture",
               "Automated CAD masterplan generation", "Worked example & results",
+              "Designing for the maximum-LOA vessel",
+              "Met-ocean basis — wind, tides & waves",
+              "Wind rose & prevailing wind direction",
+              "Wave transformation & design wave",
               "Validation & limitations", "Conclusion & future work"]
-    half = 5
+    half = 7
     col1 = agenda[:half]; col2 = agenda[half:]
     for ci, col in enumerate((col1, col2)):
         lines = []
@@ -477,9 +607,91 @@ def build():
         ("Future work", "GIS bathymetry · tidal time-series · layout optimisation · 3D / DWG."),
     ], size=19, gap=15)
 
-    # ---- 16 THANK YOU ----
+    # ---- 16 MAX-LOA DESIGN VESSEL ----
+    s = base_slide(prs); decor(s, "Design · Maximum LOA", 16, TOTAL)
+    header(s, "Design for Maximum LOA — ULCV 400 m")
+    s.shapes.add_picture(str(ASSETS / "plan_ulcv.png"), Inches(7.05), Inches(2.0),
+                         height=Inches(4.8))
+    mi = maxloa["input"]
+    ln = [{"before": 4, "runs": [
+        {"t": "Largest vessel transiting Suez — ", "size": 13, "color": DIM, "font": BODY},
+        {"t": f"{maxloa['summary']['vessel_class']}", "size": 13, "color": CYAN,
+         "font": BODY, "bold": True}]},
+        {"before": 6, "runs": [
+            {"t": f"LOA {mi['loa']:.0f} m  ·  B {mi['beam']:.1f} m  ·  T {mi['draft']:.1f} m  ·  {mi['dwt']:,} DWT",
+             "size": 13, "color": TEXT, "font": MONO}]}]
+    for r in maxloa["results"]:
+        ln.append({"before": 7, "runs": [
+            {"t": f"{r['label']}", "size": 13, "color": TEXT, "font": BODY}]})
+        ln.append({"before": 0, "runs": [
+            {"t": f"   {r['value']:,} ", "size": 17, "color": BIO, "font": MONO, "bold": True},
+            {"t": r["unit"], "size": 12, "color": DIM, "font": MONO}]})
+    textbox(s, 1.15, 2.05, 5.7, 4.9, ln)
+
+    # ---- 17 WIND ROSE / PWD ----
+    s = base_slide(prs); decor(s, "Met-ocean · Lecture 2A", 17, TOTAL)
+    header(s, "Wind Rose & Prevailing Wind Direction")
+    s.shapes.add_picture(str(ASSETS / "windrose.png"), Inches(7.0), Inches(1.95),
+                         height=Inches(4.9))
+    bullets(s, [
+        ("Polygon method", "V_avg = (D1·V1+D2·V2+D3·V3+D4·V4) / ΣD"),
+        (f"Recorded {_grand:,} hr/yr", "speed classes 5 / 15 / 25 / 35 kt by direction."),
+        (f"PWD = {_pwd['dir']}  ({_pwd['pct']:.1f}%)", "direction of longest wind duration."),
+        ("Design rule", "major breakwater oriented PERPENDICULAR to the PWD."),
+    ], w=5.7, size=16)
+
+    # ---- 18 WAVE TRANSFORMATION / DESIGN WAVE ----
+    s = base_slide(prs); decor(s, "Waves · Lectures 3A + 4", 18, TOTAL)
+    header(s, "Wave Transformation → Design Wave")
+    formula_card(s, 1.1, 2.2, 5.5, 1.55, "SHOALING  Ks",
+                 "Ks = √(Cg0 / Cg)", "Cg = nC ; n = ½(1+2kd/sinh 2kd)")
+    formula_card(s, 6.8, 2.2, 5.5, 1.55, "REFRACTION  Kr",
+                 "Kr = √(cosφ0 / cosφ)", "Snell: sinφ/sinφ0 = L/L0")
+    formula_card(s, 1.1, 3.95, 5.5, 1.55, "DIFFRACTION  Kd",
+                 "Kd = H / Hi", "from Wiegel charts (breakwater gap)")
+    formula_card(s, 6.8, 3.95, 5.5, 1.55, "DESIGN WAVE HEIGHT",
+                 "H = Ks · Kr · Kd · H0", "transformed deep-water wave")
+    res_line = (f"d = {chan_depth} m (dredged entrance)   L0 = {sw['L0']:.0f} m   "
+                f"L = {sw['L']:.1f} m   Ks = {sw['Ks']:.3f}   Kr = {rw['Kr']:.3f}   "
+                f"Kd = {Kdw:.2f}")
+    rect(s, 1.1, 5.75, 11.2, 0.95, PANEL); vline(s, 1.1, 5.75, 0.95, AMBER, 2.5)
+    textbox(s, 1.35, 5.86, 11, 0.4, [{"runs": [
+        {"t": res_line, "size": 13, "color": CYAN, "font": MONO, "bold": True}]}])
+    textbox(s, 1.35, 6.26, 11, 0.4, [{"runs": [
+        {"t": f"Design wave  H = {Hw:.3f} m      Average design wave length  L0 ≈ {sw['L0']:.0f} m  →  {sw['L']:.0f} m at entrance",
+         "size": 14, "color": BIO, "font": MONO, "bold": True}]}])
+
+    # ---- 19 VALIDATION (coastal vs slides) ----
+    s = base_slide(prs); decor(s, "Validation", 19, TOTAL)
+    header(s, "Coastal Calcs Validated vs Lecture Numbers")
+    checks = [
+        ("Wind V_avg North", "slide 16", "8.95", f"{next(r['v_avg'] for r in _rows if r['dir']=='N'):.2f}"),
+        ("L0 = 1.56·8²", "slide 44", "100 m", f"{W.deep_water(8)[0]:.1f} m"),
+        ("d / L", "slide 44", "0.1232", f"{8/W.solve_wavelength(8,8):.4f}"),
+        ("Wavelength L", "slide 44", "65 m", f"{W.solve_wavelength(8,8):.1f} m"),
+        ("HA  (Kd 0.10)", "slide 44", "0.25 m", f"{0.10*2.5:.2f} m"),
+        ("HA  (Kd 0.145)", "slide 45", "0.36 m", f"{0.145*2.5:.2f} m"),
+    ]
+    # header row
+    cols = [1.15, 5.0, 7.6, 10.0]
+    hdr = ["CHECK", "SOURCE", "LECTURE", "COMPUTED"]
+    for c, htxt in zip(cols, hdr):
+        textbox(s, c, 2.15, 2.6, 0.4, [{"runs": [
+            {"t": htxt, "size": 11, "color": AMBER, "font": HEAD, "bold": True, "spc": 2}]}])
+    hline(s, 1.15, 2.55, 11.2, PANEL, 1.2)
+    for i, (chk, src, exp, got) in enumerate(checks):
+        y = 2.75 + i * 0.62
+        rect(s, 1.15, y, 11.2, 0.5, PANEL if i % 2 == 0 else INK2)
+        for c, txt, col, fnt in [
+            (cols[0], chk, TEXT, BODY), (cols[1], src, DIM, MONO),
+            (cols[2], exp, CYAN, MONO), (cols[3], got + "  ✓", BIO, MONO)]:
+            textbox(s, c, y + 0.1, 3.0, 0.4, [{"runs": [
+                {"t": txt, "size": 13, "color": col, "font": fnt, "bold": fnt == MONO}]}])
+
+    # ---- 20 THANK YOU ----
     s = base_slide(prs)
-    rect(s, 0, 0, SW, SH, INK)
+    if LOGO.exists():
+        s.shapes.add_picture(str(LOGO), Inches(10.85), Inches(0.5), height=Inches(2.0))
     vline(s, 1.0, 2.4, 2.6, BIO, 3)
     textbox(s, 1.3, 2.5, 11, 1.4, [{"runs": [
         {"t": "THANK YOU", "size": 60, "color": WHITE, "font": HEAD, "bold": True, "spc": 2}]}])
