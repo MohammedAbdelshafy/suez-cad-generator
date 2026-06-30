@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="461" height="900" viewBox="0 0 461 900" font-family="monospace">
+<rect x="0" y="0" width="461" height="900" fill="#03070d"/>
+<g stroke="rgba(25,240,200,0.10)" stroke-width="1">
+<line x1="20.6" y1="0" x2="20.6" y2="900"/>
+<line x1="88.1" y1="0" x2="88.1" y2="900"/>
+<line x1="155.7" y1="0" x2="155.7" y2="900"/>
+<line x1="223.3" y1="0" x2="223.3" y2="900"/>
+<line x1="290.8" y1="0" x2="290.8" y2="900"/>
+<line x1="358.4" y1="0" x2="358.4" y2="900"/>
+<line x1="426.0" y1="0" x2="426.0" y2="900"/>
+<line x1="0" y1="872.9" x2="461" y2="872.9"/>
+<line x1="0" y1="805.3" x2="461" y2="805.3"/>
+<line x1="0" y1="737.7" x2="461" y2="737.7"/>
+<line x1="0" y1="670.2" x2="461" y2="670.2"/>
+<line x1="0" y1="602.6" x2="461" y2="602.6"/>
+<line x1="0" y1="535.0" x2="461" y2="535.0"/>
+<line x1="0" y1="467.5" x2="461" y2="467.5"/>
+<line x1="0" y1="399.9" x2="461" y2="399.9"/>
+<line x1="0" y1="332.3" x2="461" y2="332.3"/>
+<line x1="0" y1="264.8" x2="461" y2="264.8"/>
+<line x1="0" y1="197.2" x2="461" y2="197.2"/>
+<line x1="0" y1="129.6" x2="461" y2="129.6"/>
+<line x1="0" y1="62.1" x2="461" y2="62.1"/>
+</g>
+<polyline points="88.1,62.1 372.5,62.1" fill="none" stroke="#e9b44c" stroke-width="2.5"/>
+<rect x="100.5" y="62.1" width="123.6" height="17.2" fill="rgba(94,240,255,0.10)" stroke="#5ef0ff" stroke-width="1.5"/>
+<text x="162.3" y="70.7" fill="#5ef0ff" font-size="12" text-anchor="middle" paint-order="stroke" stroke="#03070d" stroke-width="3">Berth 1</text>
+<rect x="236.5" y="62.1" width="123.6" height="17.2" fill="rgba(94,240,255,0.10)" stroke="#5ef0ff" stroke-width="1.5"/>
+<text x="298.3" y="70.7" fill="#5ef0ff" font-size="12" text-anchor="middle" paint-order="stroke" stroke="#03070d" stroke-width="3">Berth 2</text>
+<circle cx="230.3" cy="190.6" r="98.9" fill="rgba(25,240,200,0.05)" stroke="#19f0c8" stroke-width="1.5"/>
+<text x="230.3" y="190.6" fill="#19f0c8" font-size="12" text-anchor="middle" paint-order="stroke" stroke="#03070d" stroke-width="3">Turning basin</text>
+<rect x="159.7" y="277.1" width="141.3" height="211.9" fill="rgba(25,240,200,0.04)" stroke="#19f0c8" stroke-width="1.5"/>
+<text x="230.3" y="383.1" fill="#19f0c8" font-size="12" text-anchor="middle" paint-order="stroke" stroke="#03070d" stroke-width="3">Approach channel</text>
+<circle cx="230.3" cy="669.7" r="168.3" fill="rgba(122,92,255,0.05)" stroke="#7a5cff" stroke-width="1.5"/>
+<text x="230.3" y="669.7" fill="#7a5cff" font-size="12" text-anchor="middle" paint-order="stroke" stroke="#03070d" stroke-width="3">Anchorage</text>
+<g stroke="#cfeee9" stroke-width="2" fill="#cfeee9" font-size="12"><line x1="18" y1="876.0" x2="186.9" y2="876.0"/><line x1="18" y1="871.0" x2="18" y2="881.0"/><line x1="186.9" y1="871.0" x2="186.9" y2="881.0"/><text x="18" y="867.0" stroke="none">500 m</text></g>
+<text x="230" y="26" fill="#eafffb" font-size="15" text-anchor="middle" stroke="none">SUEZ PORT MASTERPLAN — New-Panamax / Neo-Panamax</text>
+</svg>

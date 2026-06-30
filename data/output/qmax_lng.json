@@ -1,0 +1,141 @@
+{
+  "input": {
+    "vessel_type": "lng",
+    "loa": 345,
+    "beam": 53.8,
+    "draft": 12,
+    "dwt": 130000,
+    "speed_kn": 6,
+    "exposure": "moderate",
+    "channel_type": "two-way",
+    "maneuver_aids": "thrusters",
+    "num_berths": 2
+  },
+  "summary": {
+    "vessel_class": "Lng vessel",
+    "block_coefficient": 0.74,
+    "squat_m": 0.27
+  },
+  "results": [
+    {
+      "label": "Approach Channel Depth",
+      "value": 13.4,
+      "unit": "m",
+      "note": "draft 12.0 + squat 0.27 + wave 0.5 + UKC 0.60"
+    },
+    {
+      "label": "Approach Channel Width",
+      "value": 441.2,
+      "unit": "m",
+      "note": "two-way channel, moderate exposure"
+    },
+    {
+      "label": "Turning Circle Diameter",
+      "value": 517.5,
+      "unit": "m",
+      "note": "1.5 x LOA (thrusters)"
+    },
+    {
+      "label": "Turning Basin Area",
+      "value": 21.03,
+      "unit": "ha",
+      "note": "water area swept for turning"
+    },
+    {
+      "label": "Berth Pocket Depth",
+      "value": 12.8,
+      "unit": "m",
+      "note": "alongside, reduced squat"
+    },
+    {
+      "label": "Total Quay Length",
+      "value": 793.5,
+      "unit": "m",
+      "note": "2 berth(s) + 34 m clearances"
+    },
+    {
+      "label": "Design Stopping Distance",
+      "value": 2415.0,
+      "unit": "m",
+      "note": "~7 x LOA, loaded, emergency stop"
+    },
+    {
+      "label": "Anchorage Swing Radius",
+      "value": 455.2,
+      "unit": "m",
+      "note": "single-point swing mooring"
+    },
+    {
+      "label": "Anchorage Area",
+      "value": 65.1,
+      "unit": "ha",
+      "note": "per swinging vessel"
+    }
+  ],
+  "geometry": {
+    "units": "m",
+    "shapes": [
+      {
+        "kind": "polyline",
+        "layer": "QUAY",
+        "label": "Quay wall",
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            793.5,
+            0.0
+          ]
+        ],
+        "closed": false
+      },
+      {
+        "kind": "rect",
+        "layer": "BERTH",
+        "label": "Berth 1",
+        "x": 34.5,
+        "y": -53.8,
+        "w": 345.0,
+        "h": 53.8
+      },
+      {
+        "kind": "rect",
+        "layer": "BERTH",
+        "label": "Berth 2",
+        "x": 414.0,
+        "y": -53.8,
+        "w": 345.0,
+        "h": 53.8
+      },
+      {
+        "kind": "circle",
+        "layer": "TURNING",
+        "label": "Turning basin",
+        "cx": 396.75,
+        "cy": -347.05,
+        "r": 258.75
+      },
+      {
+        "kind": "rect",
+        "layer": "CHANNEL",
+        "label": "Approach channel",
+        "x": 176.17,
+        "y": -1233.04,
+        "w": 441.16,
+        "h": 661.74,
+        "note": "reach length schematic"
+      },
+      {
+        "kind": "circle",
+        "layer": "ANCHORAGE",
+        "label": "Anchorage",
+        "cx": 396.75,
+        "cy": -1722.74,
+        "r": 455.2
+      }
+    ]
+  },
+  "disclaimer": "Planning-level concept figures (PIANC/UNCTAD rules of thumb). Not for construction. Verify with a manoeuvring simulation and a qualified maritime engineer."
+}
