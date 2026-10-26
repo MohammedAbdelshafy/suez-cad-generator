@@ -1,4 +1,4 @@
-# Coastal Structures Studio
+# suez-cad-generator
 
 - How to run it: [README.md](README.md)
 - Backend and calculations: [backend](backend/)

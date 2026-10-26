@@ -2,11 +2,11 @@
 type: repository
 status: active
 owner_repo: MohammedAbdelshafy/suez-cad-generator
-product_name: Coastal Structures Studio
+product_name: suez-cad-generator
 source_of_truth: https://github.com/MohammedAbdelshafy/suez-cad-generator
 ---
 
-# Coastal Structures Studio CONTEXT
+# suez-cad-generator CONTEXT
 
 One job: estimate concept-level port dimensions from design vessel inputs and render a schematic plan for engineering review.
 
