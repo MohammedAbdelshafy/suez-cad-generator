@@ -1,9 +1,8 @@
 # Coastal Structures Studio
 
-A **design-vessel port dimensioning** engine with a CAD/masterplan front-end.
-Enter a design vessel's particulars (LOA, beam, draft, …) and it computes the
-port's principal dimensions — approach channel depth & width, turning circle,
-quay length, and more — then draws and exports a to-scale masterplan.
+A browser-based planning tool for exploring port dimensions from a design vessel's length, beam and draft. It estimates channel size, turning space and quay length, then draws a schematic plan that can be exported to common CAD/report formats.
+
+Customer-facing name: **Coastal Structures Studio**.
 
 > Planning-level concept figures (PIANC WG121 / UNCTAD rules of thumb).
 > **Not for construction** — verify with a manoeuvring simulation and a
