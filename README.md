@@ -1,8 +1,6 @@
-# Coastal Structures Studio
+# suez-cad-generator
 
 A browser-based planning tool for exploring port dimensions from a design vessel's length, beam and draft. It estimates channel size, turning space and quay length, then draws a schematic plan that can be exported to common CAD/report formats.
-
-Customer-facing name: **Coastal Structures Studio**.
 
 > Planning-level concept figures (PIANC WG121 / UNCTAD rules of thumb).
 > **Not for construction** — verify with a manoeuvring simulation and a
